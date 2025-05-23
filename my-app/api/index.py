@@ -1,38 +1,35 @@
 import json
-from http.server import BaseHTTPRequestHandler
-import urllib.parse
 
-# Load student data from the JSON file
-def load_data():
-    with open('q-vercel-python.json', 'r') as file:
-        data = json.load(file)
-    return data
+def handler(request):
+    from urllib.parse import parse_qs
 
-# Handler class to process incoming requests
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        # Parse the query parameters
-        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+    # Enable CORS
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json"
+    }
 
-        # Get 'name' parameters from the query string
-        names = query.get('name', [])
+    try:
+        query = parse_qs(request["queryStringParameters"])
+        names = query.get("name", [])
+    except Exception:
+        return {
+            "statusCode": 400,
+            "headers": headers,
+            "body": json.dumps({"error": "Invalid query parameters"})
+        }
 
-        # Load data from the JSON file
-        data = load_data()
+    # Load marks
+    with open("students.json") as f:
+        data = json.load(f)
 
-        # Prepare the result dictionary
-        result = {"marks": []}
-        for name in names:
-            # Find the marks for each name
-            for entry in data:
-                if entry["name"] == name:
-                    result["marks"].append(entry["marks"])
+    marks = [data.get(name, None) for name in names]
 
-        # Send the response header
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')  # Enable CORS for any origin
-        self.end_headers()
+    return {
+        "statusCode": 200,
+        "headers": headers,
+        "body": json.dumps({"marks": marks})
+    }
 
-        # Send the JSON response
-        self.wfile.write(json.dumps(result).encode('utf-8'))
+# Required for Vercel's Python runtime
+handler = handler
